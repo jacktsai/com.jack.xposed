@@ -1,0 +1,3 @@
+com.jack.xposed.hooks.XposedHookZygoteInit
+com.jack.xposed.hooks.XposedHookLoadPackage
+com.jack.xposed.hooks.XposedHookInitPackageResources
