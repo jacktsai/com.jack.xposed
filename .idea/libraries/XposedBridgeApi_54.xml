@@ -4,6 +4,8 @@
       <root url="jar://$PROJECT_DIR$/mod/libs/XposedBridgeApi-54.jar!/" />
     </CLASSES>
     <JAVADOC />
-    <SOURCES />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/mod/libs/XposedBridgeApi-54.jar!/" />
+    </SOURCES>
   </library>
 </component>
