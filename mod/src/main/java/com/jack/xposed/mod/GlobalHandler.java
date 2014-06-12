@@ -243,6 +243,7 @@ public class GlobalHandler {
                 //View view = viewMap.get(activity);
                 //if (view == null) {
                     TextView textView = new TextView(activity);
+                String text = String.format()
                     textView.setText(activity.getPackageName());
 
                     WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
