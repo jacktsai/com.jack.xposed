@@ -1,7 +1,7 @@
 apply plugin: 'android'
 
 android {
-    compileSdkVersion 19
+    compileSdkVersion 15
     buildToolsVersion '19.1.0'
     defaultConfig {
         applicationId 'com.jack.xposed'
@@ -22,4 +22,5 @@ android {
 
 dependencies {
     provided files('libs/XposedBridgeApi-54.jar')
+    provided files('libs/full_framework_15.jar')
 }

@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="full_framework_15">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/mod/libs/full_framework_15.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="file://$APPLICATION_HOME_DIR$/sdk/sources/android-15" />
+    </SOURCES>
+  </library>
+</component>
