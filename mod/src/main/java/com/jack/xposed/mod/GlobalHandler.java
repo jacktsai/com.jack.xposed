@@ -37,6 +37,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -230,7 +231,7 @@ public class GlobalHandler {
         });
     }
 
-    TextView textView;
+    HashMap<Activity, View> viewMap = new HashMap<Activity, View>();
 
     private void hook_ActivityThread() throws Throwable {
         Class<?> clazz = ActivityThread.class;
@@ -239,8 +240,9 @@ public class GlobalHandler {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Activity activity = (Activity)getObjectField(param.args[0], "activity");
-                if (textView == null) {
-                    textView = new TextView(activity);
+                //View view = viewMap.get(activity);
+                //if (view == null) {
+                    TextView textView = new TextView(activity);
                     textView.setText(activity.getPackageName());
 
                     WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
@@ -253,20 +255,22 @@ public class GlobalHandler {
 
                     WindowManager windowManager = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
                     windowManager.addView(textView, layoutParams);
-                }
+                    viewMap.put(activity, textView);
+                //}
             }
         });
 
         hookAllMethods(clazz, "handleDestroyActivity", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (textView != null) {
-                    ActivityThread activityThread = (ActivityThread) param.thisObject;
-                    Activity activity = activityThread.getActivity((IBinder) param.args[0]);
-                    WindowManager windowManager = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
-                    windowManager.removeViewImmediate(textView);
-                    textView = null;
-                }
+                //if (textView != null) {
+                    ActivityThread activityThread = (ActivityThread)param.thisObject;
+                    Activity activity = activityThread.getActivity((IBinder)param.args[0]);
+                View view = viewMap.get(activity);
+                    WindowManager windowManager = (WindowManager)activity.getSystemService(Context.WINDOW_SERVICE);
+                    windowManager.removeViewImmediate(view);
+                    //textView = null;
+                //}
             }
         });
     }
