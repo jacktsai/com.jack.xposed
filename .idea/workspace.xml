@@ -63,19 +63,8 @@
     <option name="TOOL_WINDOW_CONFIGURED_FILTER" value="WindowManager" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="28e98f4a-39c0-4140-a882-6aecd9f64749" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/mod/libs/full_framework_15.jar" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/hooks/BeforeAfterMethodHook.java" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/mod/src/main/res/layout/content_view.xml" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/.idea/libraries/full_framework_15.xml" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/mod/src/main/res/layout/main_activity.xml" />
+    <list default="true" id="28e98f4a-39c0-4140-a882-6aecd9f64749" name="Default" comment="add ...">
       <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mod/src/main/AndroidManifest.xml" afterPath="$PROJECT_DIR$/mod/src/main/AndroidManifest.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/hooks/GeneralMethodHook.java" afterPath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/hooks/GeneralMethodHook.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/mod/GlobalHandler.java" afterPath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/mod/GlobalHandler.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/app/MainActivity.java" afterPath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/app/MainActivity.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mod/build.gradle" afterPath="$PROJECT_DIR$/mod/build.gradle" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mod/mod.iml" afterPath="$PROJECT_DIR$/mod/mod.iml" />
     </list>
     <ignored path="com.jack.xposed.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -85,7 +74,7 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="ChangesViewManager" flattened_view="false" show_ignored="true" />
+  <component name="ChangesViewManager" flattened_view="false" show_ignored="false" />
   <component name="CreatePatchCommitExecutor">
     <option name="PATCH_PATH" value="" />
   </component>
@@ -1373,6 +1362,11 @@
       <created>1402547373657</created>
       <updated>1402547373657</updated>
     </task>
+    <task id="LOCAL-00001" summary="add ...">
+      <created>1402573579347</created>
+      <updated>1402573579347</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -1425,6 +1419,8 @@
     <option name="myTodoPanelSettings">
       <TodoPanelSettings />
     </option>
+    <MESSAGE value="add ..." />
+    <option name="LAST_COMMIT_MESSAGE" value="add ..." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager />
