@@ -10,7 +10,6 @@ public class XposedHookZygoteInit implements IXposedHookZygoteInit {
     public void initZygote(StartupParam startupParam) throws Throwable {
         J.log("init Zygote [%s]", startupParam.modulePath);
 
-        GlobalHandler handler = new GlobalHandler();
-        handler.onZygoteInit();
+        GlobalHandler.getInstance().onZygoteInit(startupParam);
     }
 }

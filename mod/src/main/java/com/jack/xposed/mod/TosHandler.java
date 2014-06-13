@@ -151,7 +151,7 @@ public class TosHandler {
 
     private void hook_UnityPlayer(XC_LoadPackage.LoadPackageParam packageParam) throws Throwable {
         Class<?> clazz = Class.forName("com.unity3d.player.UnityPlayer", false, packageParam.classLoader);
-        XC_MethodHook hook = new GeneralMethodHook();
+        XC_MethodHook hook = new GeneralMethodHook(packageParam);
 
         for (Method method : clazz.getDeclaredMethods()) {
             String name = method.getName();
@@ -183,7 +183,7 @@ public class TosHandler {
 
     private void hook_PlayerPrefs(XC_LoadPackage.LoadPackageParam packageParam) throws Throwable {
         Class<?> clazz = Class.forName("com.unity3d.player.PlayerPrefs", false, packageParam.classLoader);
-        XC_MethodHook hook = new GeneralMethodHook() {
+        XC_MethodHook hook = new GeneralMethodHook(packageParam) {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Method method = (Method) param.method;
@@ -210,7 +210,7 @@ public class TosHandler {
 
     private void hook_WWW(XC_LoadPackage.LoadPackageParam packageParam) throws Throwable {
         Class<?> clazz = Class.forName("com.unity3d.player.WWW", false, packageParam.classLoader);
-        XC_MethodHook hook = new GeneralMethodHook() {
+        XC_MethodHook hook = new GeneralMethodHook(packageParam) {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 super.beforeHookedMethod(param);
@@ -223,7 +223,7 @@ public class TosHandler {
 
     private void hook_URL(XC_LoadPackage.LoadPackageParam packageParam) throws Throwable {
         Class<?> clazz = Class.forName("java.net.URL", false, packageParam.classLoader);
-        XC_MethodHook hook = new GeneralMethodHook() {
+        XC_MethodHook hook = new GeneralMethodHook(packageParam) {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 super.afterHookedMethod(param);
@@ -242,7 +242,7 @@ public class TosHandler {
     }
 
     private void hook_URLConnection(XC_LoadPackage.LoadPackageParam packageParam) throws Throwable {
-        XC_MethodHook hook = new GeneralMethodHook() {
+        XC_MethodHook hook = new GeneralMethodHook(packageParam) {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 URLConnection connection = (URLConnection) param.thisObject;
@@ -292,7 +292,7 @@ public class TosHandler {
     private void hook_OutputStream(XC_LoadPackage.LoadPackageParam packageParam) throws Throwable {
 //        Class<?> clazz = Class.forName("com.android.okhttp.internal.http.RetryableOutputStream", false, packageParam.classLoader);
         Class<?> clazz = MyOutputStream.class;
-        XC_MethodHook hook = new GeneralMethodHook();
+        XC_MethodHook hook = new GeneralMethodHook(packageParam);
 
         for (Method method : clazz.getDeclaredMethods()) {
             if (method.getName().equals("toString"))
@@ -305,7 +305,7 @@ public class TosHandler {
     private void hook_InputStream(XC_LoadPackage.LoadPackageParam packageParam) throws Throwable {
 //        Class<?> clazz = Class.forName("java.util.zip.GZIPInputStream", false, packageParam.classLoader);
         Class<?> clazz = MyInputStream.class;
-        XC_MethodHook hook = new GeneralMethodHook();
+        XC_MethodHook hook = new GeneralMethodHook(packageParam);
 
         for (Method method : clazz.getDeclaredMethods()) {
             if (method.getName().equals("toString"))

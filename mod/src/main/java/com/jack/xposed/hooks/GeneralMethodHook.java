@@ -1,44 +1,69 @@
 package com.jack.xposed.hooks;
 
-import android.app.ActivityThread;
-import android.content.Context;
-
 import com.jack.xposed.utils.J;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 public class GeneralMethodHook extends XC_MethodHook {
     protected static final String TAG = "MethodHook";
 
+    protected final LoadPackageParam packageParam;
+    private HashMap<Thread, Integer> indentMap = new HashMap<Thread, Integer>();
+
+    public GeneralMethodHook(LoadPackageParam packageParam) {
+        this.packageParam = packageParam;
+    }
+
+    @Override
+    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+        DataSlot slot = new DataSlot(param);
+        Thread thread = Thread.currentThread();
+        Integer indent = indentMap.get(thread);
+        if (indent == null)
+            indent = 0;
+
+        StringBuilder pad = new StringBuilder(indent);
+        for (int i = 0; i < indent; i++)
+            pad.append("-");
+
+        J.d(TAG, "[%s] >> %s%s.%s(%s)", packageParam.packageName, pad, slot.thisName, slot.methodName, slot.argString);
+
+        indent++;
+        indentMap.put(thread, indent);
+    }
+
     @Override
     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
         DataSlot slot = new DataSlot(param);
-        if (slot.canPrint())
-            J.d(TAG, "[%s] %s.%s(%s)%s", slot.packageName, slot.thisName, slot.methodName, slot.argString, slot.returnString);
+        Thread thread = Thread.currentThread();
+        Integer indent = indentMap.get(thread);
+        indent--;
+
+        StringBuilder pad = new StringBuilder(indent);
+        for (int i = 0; i < indent; i++)
+            pad.append("-");
+
+        if (slot.returnString.length() == 0)
+            J.d(TAG, "[%s] << %s%s.%s", packageParam.packageName, pad, slot.thisName, slot.methodName);
+        else
+            J.d(TAG, "[%s] << %s%s.%s ret %s", packageParam.packageName, pad, slot.thisName, slot.methodName, slot.returnString);
+
+        indentMap.put(thread, indent);
     }
 
     protected static class DataSlot {
-        Context context;
-        String packageName;
         String thisName;
         String methodName;
         String argString;
         String returnString;
 
         public DataSlot(MethodHookParam param) {
-            context = ActivityThread.currentApplication();
-            packageName = "android";
-            if (context != null) {
-                packageName = context.getPackageName();
-            }
-
-            if (!packageName.equals("com.jack.xposed"))
-                return;
-
             Member member = param.method;
             thisName = member.getDeclaringClass().getSimpleName();
             methodName = null;
@@ -86,10 +111,6 @@ public class GeneralMethodHook extends XC_MethodHook {
                 else
                     returnString = returnString + returnValue.toString();
             }
-        }
-
-        public boolean canPrint() {
-            return methodName != null;
         }
     }
 }

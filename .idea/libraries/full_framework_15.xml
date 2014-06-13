@@ -5,7 +5,7 @@
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$APPLICATION_HOME_DIR$/sdk/sources/android-15" />
+      <root url="file://$APPLICATION_HOME_DIR$/sdk/sources/android-19" />
     </SOURCES>
   </library>
 </component>

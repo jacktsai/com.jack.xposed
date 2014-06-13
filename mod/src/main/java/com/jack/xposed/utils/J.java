@@ -1,5 +1,7 @@
 package com.jack.xposed.utils;
 
+import android.app.ActivityThread;
+import android.app.Application;
 import android.util.Log;
 
 import de.robv.android.xposed.XposedBridge;
@@ -46,7 +48,13 @@ public class J {
             }
 
             if (firstPrint) {
-                d(tag, "[<%d> %s] %s.%s [%s #%d]", t.getId(), t.getName(), e.getClassName(), e.getMethodName(), e.getFileName(), e.getLineNumber());
+                String packageName = "android";
+                Application context = ActivityThread.currentApplication();
+                if (context != null) {
+                    packageName = context.getPackageName();
+                }
+
+                d(tag, "[%s][<%d> %s] %s.%s [%s #%d]", packageName, t.getId(), t.getName(), e.getClassName(), e.getMethodName(), e.getFileName(), e.getLineNumber());
                 firstPrint = false;
             } else {
                 d(tag, "-> %s.%s [%s #%d]", e.getClassName(), e.getMethodName(), e.getFileName(), e.getLineNumber());

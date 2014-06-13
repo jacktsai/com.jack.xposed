@@ -2,21 +2,27 @@ package com.jack.xposed.hooks;
 
 import com.jack.xposed.utils.J;
 
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
+
 public class BeforeAfterMethodHook extends GeneralMethodHook {
     protected static final String TAG = "MethodHook";
+
+    public BeforeAfterMethodHook(LoadPackageParam packageParam) {
+        super(packageParam);
+    }
 
     @Override
     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
         DataSlot slot = new DataSlot(param);
-            J.d(TAG, "[%s] before %s.%s(%s)", slot.packageName, slot.thisName, slot.methodName, slot.argString);
+        J.d(TAG, "[%s] before %s.%s(%s)", packageParam.packageName, slot.thisName, slot.methodName, slot.argString);
     }
 
     @Override
     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
         DataSlot slot = new DataSlot(param);
         if (slot.returnString.length() == 0)
-            J.d(TAG, "[%s] after %s.%s", slot.packageName, slot.thisName, slot.methodName);
+            J.d(TAG, "[%s] after %s.%s", packageParam.packageName, slot.thisName, slot.methodName);
         else
-            J.d(TAG, "[%s] after %s.%s => %s", slot.packageName, slot.thisName, slot.methodName, slot.returnString);
+            J.d(TAG, "[%s] after %s.%s => %s", packageParam.packageName, slot.thisName, slot.methodName, slot.returnString);
     }
 }

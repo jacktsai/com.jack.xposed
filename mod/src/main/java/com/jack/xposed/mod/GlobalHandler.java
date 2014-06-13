@@ -8,329 +8,610 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
-import android.graphics.drawable.GradientDrawable;
 import android.os.IBinder;
 import android.os.Message;
-import android.view.CompatibilityInfoHolder;
 import android.view.Gravity;
+import android.view.HardwareCanvas;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewRootImpl;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.WindowManagerImpl;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.android.internal.telephony.IccPhoneBookInterfaceManager;
-import com.android.internal.util.ArrayUtils;
 import com.jack.xposed.R;
-import com.jack.xposed.hooks.BeforeAfterMethodHook;
 import com.jack.xposed.hooks.GeneralMethodHook;
 import com.jack.xposed.utils.J;
 
-import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.HashMap;
 
+import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
-import static de.robv.android.xposed.XposedHelpers.getByteField;
-import static de.robv.android.xposed.XposedHelpers.getObjectField;
-import static de.robv.android.xposed.XposedHelpers.setObjectField;
 import static de.robv.android.xposed.XposedBridge.hookAllMethods;
+import static de.robv.android.xposed.XposedBridge.hookMethod;
+import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
+import static de.robv.android.xposed.XposedHelpers.findClass;
+import static de.robv.android.xposed.XposedHelpers.getIntField;
+import static de.robv.android.xposed.XposedHelpers.getObjectField;
 
 public class GlobalHandler {
-    private static final String TAG = GlobalHandler.class.getSimpleName();
+    protected static GlobalHandler instance = new GlobalHandler();
 
-    public void onZygoteInit() throws Throwable {
-        hook_PhoneWindow();
-//        hook_View();
-        hook_DecorView();
-        hook_ViewRootImpl();
-        hook_WindowManagerImpl();
-        hook_Activity();
-        hook_ActivityThread();
+    public static GlobalHandler getInstance() {
+        return instance;
     }
 
-    private void hook_PhoneWindow() throws Throwable {
-        Class<?> clazz = XposedHelpers.findClass("com.android.internal.policy.impl.PhoneWindow", null);
+    protected GlobalHandler() {
+    }
 
-        for (Constructor<?> method : clazz.getDeclaredConstructors()) {
-            XposedBridge.hookMethod(method, new GeneralMethodHook());
+    public void onZygoteInit(IXposedHookZygoteInit.StartupParam startupParam) throws Throwable {
+    }
+
+    public void onLoadPackage(LoadPackageParam packageParam) throws Throwable {
+        String packageName = packageParam.packageName;
+
+        new ActivityThread_MessageTracer(packageParam);
+        new Activity_Tracer(packageParam);
+
+        new ActivityThread_MessageDecorator(packageParam);
+        new Activity_Decorator(packageParam);
+        new ViewRootImpl_Decorator();
+
+        if (packageName.equals("com.jack.xposed")) {
+            new WindowManagerImpl_Tracer(packageParam);
+            new WindowManagerGlobal_Tracer(packageParam);
+            new PhoneWindow_Tracer(packageParam);
+            new DecorView_Tracer(packageParam);
+//            new ViewRootImpl_Tracer(packageParam);
+            new ViewRoot_MessageTracer(packageParam);
+        }
+    }
+
+    private HashMap<Context, View> viewMap = new HashMap<Context, View>();
+
+    private void addCustomView(Activity activity) {
+        TextView textView = new TextView(activity);
+        String text = String.format("%s", activity.getComponentName().getClassName());
+        textView.setText(text);
+
+        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+        layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
+        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION;
+        layoutParams.format = PixelFormat.TRANSPARENT;
+        layoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+        layoutParams.gravity = Gravity.BOTTOM | Gravity.LEFT;
+
+        activity.getWindowManager().addView(textView, layoutParams);
+
+        viewMap.put(activity, textView);
+    }
+
+    private void removeCustomView(Activity activity) {
+        View view = viewMap.get(activity);
+        activity.getWindowManager().removeView(view);
+        viewMap.remove(activity);
+    }
+
+    protected static class PhoneWindow_Tracer extends GeneralMethodHook {
+        public PhoneWindow_Tracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+
+            Class clazz = findClass("com.android.internal.policy.impl.PhoneWindow", null);
+
+            for (Constructor<?> method : clazz.getDeclaredConstructors()) {
+                hookMethod(method, this);
+            }
+
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (Modifier.isPublic(method.getModifiers())) {
+                    String methodName = method.getName();
+                    if (methodName.equals("toString") ||
+                            methodName.equals("superDispatchKeyEvent") ||
+                            methodName.equals("superDispatchTouchEvent"))
+                        continue;
+
+                    hookMethod(method, this);
+                }
+            }
+        }
+    }
+
+    protected static class DecorView_Tracer extends GeneralMethodHook {
+        public DecorView_Tracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+
+            Class<?> clazz = findClass("com.android.internal.policy.impl.PhoneWindow.DecorView", null);
+
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (Modifier.isPublic(method.getModifiers())) {
+                    String methodName = method.getName();
+                    if (methodName.equals("toString") ||
+                            methodName.equals("dispatchKeyEvent") || methodName.equals("onKeyDown") || methodName.equals("onKeyUp") || methodName.equals("superDispatchKeyEvent") ||
+                            methodName.equals("onTouchEvent") || methodName.equals("onInterceptTouchEvent") || methodName.equals("dispatchTouchEvent") || methodName.equals("superDispatchTouchEvent"))
+                        continue;
+
+                    hookMethod(method, this);
+                }
+            }
+        }
+    }
+
+    protected static class ViewRootImpl_Tracer extends GeneralMethodHook {
+        public ViewRootImpl_Tracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+
+            Class<?> clazz = ViewRootImpl.class;
+
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (Modifier.isPublic(method.getModifiers())) {
+                    String methodName = method.getName();
+                    if (methodName.equals("toString"))
+                        continue;
+
+                    hookMethod(method, this);
+                }
+            }
+        }
+    }
+
+    protected static class ViewRootImpl_Decorator extends XC_MethodHook {
+        public ViewRootImpl_Decorator() throws Throwable {
+            Class<?> clazz = ViewRootImpl.class;
+
+            findAndHookMethod(clazz, "onHardwarePostDraw", HardwareCanvas.class, this);
         }
 
-        XC_MethodHook hook = new GeneralMethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                super.afterHookedMethod(param);
-//                String methodName = param.method.getName();
-//                if (methodName.equals("getDecorView")) {
-//                    J.printStackTrace(TAG);
-//                }
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            Method method = (Method) param.method;
+            String methodName = method.getName();
+            if (methodName.equals("onHardwarePostDraw")) {
+                HardwareCanvas canvas = (HardwareCanvas) param.args[0];
+                int width = getIntField(param.thisObject, "mWidth");
+                int height = getIntField(param.thisObject, "mHeight");
+                drawRect(canvas, new Rect(0, 0, width, height), Color.GREEN, 5);
             }
-        };
+        }
 
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (Modifier.isPublic(method.getModifiers())) {
+        private void drawRect(Canvas canvas, Rect rect, int color, int width) {
+            Paint paint = new Paint();
+            paint.setColor(color);
+            paint.setStrokeWidth(width);
+            paint.setStyle(Paint.Style.STROKE);
+
+            canvas.drawRect(rect, paint);
+        }
+    }
+
+    /**
+     * 已查證，每一個 app 會有自己一個 WindowManagerGlobal instance
+     */
+    protected static class WindowManagerImpl_Tracer extends GeneralMethodHook {
+        public WindowManagerImpl_Tracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+
+            Class<?> clazz = findClass("android.view.WindowManagerImpl", null);
+
+            for (Constructor<?> method : clazz.getDeclaredConstructors()) {
+                hookMethod(method, this);
+            }
+
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (Modifier.isPublic(method.getModifiers())) {
+                    String methodName = method.getName();
+                    if (methodName.equals("toString"))
+                        continue;
+
+                    hookMethod(method, this);
+                }
+            }
+        }
+    }
+
+    /**
+     * 已查證，每一個 app 會有自己一個 WindowManagerGlobal instance
+     */
+    protected static class WindowManagerGlobal_Tracer extends GeneralMethodHook {
+        public WindowManagerGlobal_Tracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+
+            Class<?> clazz = findClass("android.view.WindowManagerGlobal", null);
+
+            for (Constructor<?> method : clazz.getDeclaredConstructors()) {
+                hookMethod(method, this);
+            }
+        }
+    }
+
+    protected static class Activity_Tracer extends GeneralMethodHook {
+        public Activity_Tracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+
+            Class<?> clazz = Activity.class;
+
+            for (Constructor<?> method : clazz.getDeclaredConstructors()) {
+                hookMethod(method, this);
+            }
+
+            String packageName = packageParam.packageName;
+            for (Method method : clazz.getDeclaredMethods()) {
                 String methodName = method.getName();
-                if (methodName.equals("toString") ||
-                    methodName.equals("superDispatchKeyEvent") ||
-                    methodName.equals("superDispatchTouchEvent"))
+                if (methodName.equals("toString") || methodName.equals("getSystemService"))
                     continue;
 
-                XposedBridge.hookMethod(method, hook);
+                if (packageName.equals("com.jack.xposed") ||
+                        methodName.equals("onCreate") || methodName.equals("onResume") || methodName.equals("onPause") || methodName.equals("doDestroy"))
+                    hookMethod(method, this);
             }
         }
     }
 
-    private void hook_View() throws Throwable {
-        Class<?> clazz = View.class;
+    protected class Activity_Decorator extends XC_MethodHook {
+        private final LoadPackageParam packageParam;
 
-        XC_MethodHook hook = new GeneralMethodHook();
+        public Activity_Decorator(LoadPackageParam packageParam) {
+            this.packageParam = packageParam;
 
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (Modifier.isPublic(method.getModifiers())) {
-                String methodName = method.getName();
-                if (methodName.equals("toString"))
-                    continue;
+            hookAllMethods(Activity.class, "onResume", this);
+            hookAllMethods(Activity.class, "onPause", this);
+            hookAllMethods(Activity.class, "doDestroy", this);
+        }
 
-                if (method.equals("draw"))
-                    XposedBridge.hookMethod(method, hook);
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            Activity activity = (Activity) param.thisObject;
+            String methodName = param.method.getName();
+
+            if (methodName.equals("onPause")) {
+                removeCustomView(activity);
             }
         }
-    }
 
-    private void hook_DecorView() throws Throwable {
-        Class<?> clazz = XposedHelpers.findClass("com.android.internal.policy.impl.PhoneWindow.DecorView", null);
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            Activity activity = (Activity) param.thisObject;
+            String methodName = param.method.getName();
 
-        XC_MethodHook hook = new BeforeAfterMethodHook() {
-//            @Override
-//            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-//                super.afterHookedMethod(param);
-//
-////                FrameLayout view = (FrameLayout)param.thisObject;
-////                if (param.method.getName().equals("draw")) {
-//////                    J.printStackTrace(TAG);
-////                    Canvas canvas = (Canvas)param.args[0];
-////                    Rect rect = new Rect();
-////                    view.getDrawingRect(rect);
-////                    drawRect(canvas, rect, Color.WHITE, 10);
-////                }
-//            }
-//
-//            private void drawRect(Canvas canvas, Rect rect, int color, int width) {
-//                Paint paint = new Paint();
-//                paint.setColor(color);
-//                paint.setStrokeWidth(width);
-//                paint.setStyle(Paint.Style.STROKE);
-//
-//                canvas.drawRect(rect, paint);
-//            }
-        };
-
-        for (Constructor<?> method : clazz.getDeclaredConstructors()) {
-            XposedBridge.hookMethod(method, hook);
-        }
-
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (Modifier.isPublic(method.getModifiers())) {
-                String methodName = method.getName();
-                if (methodName.equals("toString") ||
-                    methodName.equals("dispatchKeyEvent") || methodName.equals("onKeyDown") || methodName.equals("onKeyUp") || methodName.equals("superDispatchKeyEvent") ||
-                        methodName.equals("onTouchEvent") || methodName.equals("onInterceptTouchEvent") || methodName.equals("dispatchTouchEvent") || methodName.equals("superDispatchTouchEvent"))
-                    continue;
-
-                XposedBridge.hookMethod(method, hook);
-            }
-        }
-    }
-
-    private void hook_ViewRootImpl() throws Throwable {
-        Class<?> clazz = ViewRootImpl.class;
-
-        XC_MethodHook hook = new GeneralMethodHook();
-
-        for (Constructor<?> method : clazz.getDeclaredConstructors()) {
-            XposedBridge.hookMethod(method, hook);
-        }
-
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (Modifier.isPublic(method.getModifiers())) {
-                String methodName = method.getName();
-                if (methodName.equals("toString"))
-                    continue;
-
-                XposedBridge.hookMethod(method, hook);
-            }
-        }
-    }
-
-    private void hook_WindowManagerImpl() throws Throwable {
-        Class<?> clazz = WindowManagerImpl.class;
-
-        for (Constructor<?> method : clazz.getDeclaredConstructors()) {
-            XposedBridge.hookMethod(method, new GeneralMethodHook());
-        }
-
-        XC_MethodHook hook = new BeforeAfterMethodHook();
-
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (Modifier.isPublic(method.getModifiers())) {
-                String methodName = method.getName();
-                if (methodName.equals("toString"))
-                    continue;
-
-                XposedBridge.hookMethod(method, hook);
-            }
-        }
-    }
-
-    private void hook_Activity() throws Throwable {
-        Class<?> clazz = Activity.class;
-
-        XposedBridge.hookAllMethods(clazz, "onPostCreate", new GeneralMethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                Activity context = (Activity)param.thisObject;
-
+            if (methodName.equals("onResume")) {
+                addCustomView(activity);
+            } else if (methodName.equals("onPostCreate")) {
                 // 亂改其它 app 的 ID_ANDROID_CONTENT 會導致出錯，僅作於本 app 學習與測試用。
-                if (context.getPackageName().equals("com.jack.xposed")) {
-                    Window window = context.getWindow();
+                if (packageParam.packageName.equals("com.jack.xposed")) {
+                    Window window = activity.getWindow();
                     ViewGroup decor = (ViewGroup) window.getDecorView();
                     ViewGroup androidContent = (ViewGroup) decor.findViewById(Window.ID_ANDROID_CONTENT);
                     View oldContent = androidContent.getChildAt(0);
                     androidContent.removeAllViews();
-                    View newContent = context.getLayoutInflater().inflate(R.layout.content_view, androidContent);
+                    View newContent = activity.getLayoutInflater().inflate(R.layout.content_view, androidContent);
                     FrameLayout contentHolder = (FrameLayout) newContent.findViewById(R.id.content);
                     contentHolder.addView(oldContent);
                 }
-
             }
-        });
+        }
     }
 
+    protected static class ActivityThread_MessageTracer extends GeneralMethodHook {
+        protected static final int LAUNCH_ACTIVITY = 100;
+        protected static final int PAUSE_ACTIVITY = 101;
+        protected static final int PAUSE_ACTIVITY_FINISHING = 102;
+        protected static final int STOP_ACTIVITY_SHOW = 103;
+        protected static final int STOP_ACTIVITY_HIDE = 104;
+        protected static final int SHOW_WINDOW = 105;
+        protected static final int HIDE_WINDOW = 106;
+        protected static final int RESUME_ACTIVITY = 107;
+        protected static final int SEND_RESULT = 108;
+        protected static final int DESTROY_ACTIVITY = 109;
+        protected static final int BIND_APPLICATION = 110;
+        protected static final int EXIT_APPLICATION = 111;
+        protected static final int NEW_INTENT = 112;
+        protected static final int RECEIVER = 113;
+        protected static final int CREATE_SERVICE = 114;
+        protected static final int SERVICE_ARGS = 115;
+        protected static final int STOP_SERVICE = 116;
+        protected static final int REQUEST_THUMBNAIL = 117;
+        protected static final int CONFIGURATION_CHANGED = 118;
+        protected static final int CLEAN_UP_CONTEXT = 119;
+        protected static final int GC_WHEN_IDLE = 120;
+        protected static final int BIND_SERVICE = 121;
+        protected static final int UNBIND_SERVICE = 122;
+        protected static final int DUMP_SERVICE = 123;
+        protected static final int LOW_MEMORY = 124;
+        protected static final int ACTIVITY_CONFIGURATION_CHANGED = 125;
+        protected static final int RELAUNCH_ACTIVITY = 126;
+        protected static final int PROFILER_CONTROL = 127;
+        protected static final int CREATE_BACKUP_AGENT = 128;
+        protected static final int DESTROY_BACKUP_AGENT = 129;
+        protected static final int SUICIDE = 130;
+        protected static final int REMOVE_PROVIDER = 131;
+        protected static final int ENABLE_JIT = 132;
+        protected static final int DISPATCH_PACKAGE_BROADCAST = 133;
+        protected static final int SCHEDULE_CRASH = 134;
+        protected static final int DUMP_HEAP = 135;
+        protected static final int DUMP_ACTIVITY = 136;
+        protected static final int SLEEPING = 137;
+        protected static final int SET_CORE_SETTINGS = 138;
+        protected static final int UPDATE_PACKAGE_COMPATIBILITY_INFO = 139;
+        protected static final int TRIM_MEMORY = 140;
+        protected static final int DUMP_PROVIDER = 141;
+        protected static final int UNSTABLE_PROVIDER_DIED = 142;
+        protected static final int REQUEST_ASSIST_CONTEXT_EXTRAS = 143;
+        protected static final int TRANSLUCENT_CONVERSION_COMPLETE = 144;
+        protected static final int INSTALL_PROVIDER = 145;
 
-    private void hook_ActivityThread() throws Throwable {
-        Class<?> clazz = ActivityThread.class;
+        public ActivityThread_MessageTracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
 
-        hookAllMethods(clazz, "handleMessage", new GeneralMethodHook() {
-            private static final int LAUNCH_ACTIVITY         = 100;
-            private static final int PAUSE_ACTIVITY          = 101;
-            private static final int PAUSE_ACTIVITY_FINISHING= 102;
-            private static final int STOP_ACTIVITY_SHOW      = 103;
-            private static final int STOP_ACTIVITY_HIDE      = 104;
-            private static final int SHOW_WINDOW             = 105;
-            private static final int HIDE_WINDOW             = 106;
-            private static final int RESUME_ACTIVITY         = 107;
-            private static final int SEND_RESULT             = 108;
-            private static final int DESTROY_ACTIVITY        = 109;
-            private static final int BIND_APPLICATION        = 110;
-            private static final int EXIT_APPLICATION        = 111;
-            private static final int NEW_INTENT              = 112;
-            private static final int RECEIVER                = 113;
-            private static final int CREATE_SERVICE          = 114;
-            private static final int SERVICE_ARGS            = 115;
-            private static final int STOP_SERVICE            = 116;
-            private static final int REQUEST_THUMBNAIL       = 117;
-            private static final int CONFIGURATION_CHANGED   = 118;
-            private static final int CLEAN_UP_CONTEXT        = 119;
-            private static final int GC_WHEN_IDLE            = 120;
-            private static final int BIND_SERVICE            = 121;
-            private static final int UNBIND_SERVICE          = 122;
-            private static final int DUMP_SERVICE            = 123;
-            private static final int LOW_MEMORY              = 124;
-            private static final int ACTIVITY_CONFIGURATION_CHANGED = 125;
-            private static final int RELAUNCH_ACTIVITY       = 126;
-            private static final int PROFILER_CONTROL        = 127;
-            private static final int CREATE_BACKUP_AGENT     = 128;
-            private static final int DESTROY_BACKUP_AGENT    = 129;
-            private static final int SUICIDE                 = 130;
-            private static final int REMOVE_PROVIDER         = 131;
-            private static final int ENABLE_JIT              = 132;
-            private static final int DISPATCH_PACKAGE_BROADCAST = 133;
-            private static final int SCHEDULE_CRASH          = 134;
-            private static final int DUMP_HEAP               = 135;
-            private static final int DUMP_ACTIVITY           = 136;
-            private static final int SLEEPING                = 137;
-            private static final int SET_CORE_SETTINGS       = 138;
-            private static final int UPDATE_PACKAGE_COMPATIBILITY_INFO = 139;
-            private static final int TRIM_MEMORY             = 140;
+            Class<?> clazz = findClass("android.app.ActivityThread$H", null);
+            findAndHookMethod(clazz, "handleMessage", Message.class, this);
+        }
 
-            HashMap<Context, View> viewMap = new HashMap<Context, View>();
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            Message message = (Message) param.args[0];
+            beforeMessageHandled(message);
+        }
 
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                ActivityThread activityThread = (ActivityThread)param.thisObject;
-                Message msg = (Message)param.args[0];
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            Message message = (Message) param.args[0];
+            afterMessageHandled(message);
+        }
 
-                switch (msg.what) {
-                    case DESTROY_ACTIVITY:
-                        IBinder token = (IBinder)msg.obj;
-                        removeMyView(activityThread, token);
-                        break;
-                }
+        protected void beforeMessageHandled(Message message) {
+            String packageName = packageParam.packageName;
+            int m = message.what;
+            if (packageName.equals("com.jack.xposed") ||
+                    m == LAUNCH_ACTIVITY || m == RESUME_ACTIVITY || m == PAUSE_ACTIVITY || m == DESTROY_ACTIVITY)
+                J.d(TAG, "[%s] >> handling: %s", packageParam.packageName, codeToString(message.what));
+        }
 
-                J.d(TAG, ">>> handling: %s", msg.toString());
+        protected void afterMessageHandled(Message message) {
+            String packageName = packageParam.packageName;
+            int m = message.what;
+            if (packageName.equals("com.jack.xposed") ||
+                    message.what == LAUNCH_ACTIVITY || m == RESUME_ACTIVITY || m == PAUSE_ACTIVITY || message.what == DESTROY_ACTIVITY)
+                J.d(TAG, "[%s] << handling: %s", packageParam.packageName, codeToString(message.what));
+        }
+
+        private String codeToString(int code) {
+            switch (code) {
+                case LAUNCH_ACTIVITY:
+                    return "LAUNCH_ACTIVITY";
+                case PAUSE_ACTIVITY:
+                    return "PAUSE_ACTIVITY";
+                case PAUSE_ACTIVITY_FINISHING:
+                    return "PAUSE_ACTIVITY_FINISHING";
+                case STOP_ACTIVITY_SHOW:
+                    return "STOP_ACTIVITY_SHOW";
+                case STOP_ACTIVITY_HIDE:
+                    return "STOP_ACTIVITY_HIDE";
+                case SHOW_WINDOW:
+                    return "SHOW_WINDOW";
+                case HIDE_WINDOW:
+                    return "HIDE_WINDOW";
+                case RESUME_ACTIVITY:
+                    return "RESUME_ACTIVITY";
+                case SEND_RESULT:
+                    return "SEND_RESULT";
+                case DESTROY_ACTIVITY:
+                    return "DESTROY_ACTIVITY";
+                case BIND_APPLICATION:
+                    return "BIND_APPLICATION";
+                case EXIT_APPLICATION:
+                    return "EXIT_APPLICATION";
+                case NEW_INTENT:
+                    return "NEW_INTENT";
+                case RECEIVER:
+                    return "RECEIVER";
+                case CREATE_SERVICE:
+                    return "CREATE_SERVICE";
+                case SERVICE_ARGS:
+                    return "SERVICE_ARGS";
+                case STOP_SERVICE:
+                    return "STOP_SERVICE";
+                case REQUEST_THUMBNAIL:
+                    return "REQUEST_THUMBNAIL";
+                case CONFIGURATION_CHANGED:
+                    return "CONFIGURATION_CHANGED";
+                case CLEAN_UP_CONTEXT:
+                    return "CLEAN_UP_CONTEXT";
+                case GC_WHEN_IDLE:
+                    return "GC_WHEN_IDLE";
+                case BIND_SERVICE:
+                    return "BIND_SERVICE";
+                case UNBIND_SERVICE:
+                    return "UNBIND_SERVICE";
+                case DUMP_SERVICE:
+                    return "DUMP_SERVICE";
+                case LOW_MEMORY:
+                    return "LOW_MEMORY";
+                case ACTIVITY_CONFIGURATION_CHANGED:
+                    return "ACTIVITY_CONFIGURATION_CHANGED";
+                case RELAUNCH_ACTIVITY:
+                    return "RELAUNCH_ACTIVITY";
+                case PROFILER_CONTROL:
+                    return "PROFILER_CONTROL";
+                case CREATE_BACKUP_AGENT:
+                    return "CREATE_BACKUP_AGENT";
+                case DESTROY_BACKUP_AGENT:
+                    return "DESTROY_BACKUP_AGENT";
+                case SUICIDE:
+                    return "SUICIDE";
+                case REMOVE_PROVIDER:
+                    return "REMOVE_PROVIDER";
+                case ENABLE_JIT:
+                    return "ENABLE_JIT";
+                case DISPATCH_PACKAGE_BROADCAST:
+                    return "DISPATCH_PACKAGE_BROADCAST";
+                case SCHEDULE_CRASH:
+                    return "SCHEDULE_CRASH";
+                case DUMP_HEAP:
+                    return "DUMP_HEAP";
+                case DUMP_ACTIVITY:
+                    return "DUMP_ACTIVITY";
+                case SLEEPING:
+                    return "SLEEPING";
+                case SET_CORE_SETTINGS:
+                    return "SET_CORE_SETTINGS";
+                case UPDATE_PACKAGE_COMPATIBILITY_INFO:
+                    return "UPDATE_PACKAGE_COMPATIBILITY_INFO";
+                case TRIM_MEMORY:
+                    return "TRIM_MEMORY";
+                case DUMP_PROVIDER:
+                    return "DUMP_PROVIDER";
+                case UNSTABLE_PROVIDER_DIED:
+                    return "UNSTABLE_PROVIDER_DIED";
+                case REQUEST_ASSIST_CONTEXT_EXTRAS:
+                    return "REQUEST_ASSIST_CONTEXT_EXTRAS";
+                case TRANSLUCENT_CONVERSION_COMPLETE:
+                    return "TRANSLUCENT_CONVERSION_COMPLETE";
+                case INSTALL_PROVIDER:
+                    return "INSTALL_PROVIDER";
             }
 
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                ActivityThread activityThread = (ActivityThread)param.thisObject;
-                Message msg = (Message)param.args[0];
+            return String.format("(unknown of code %d)", code);
+        }
+    }
 
-                switch (msg.what) {
-                    case LAUNCH_ACTIVITY:
-                        Object activityRecord = msg.obj;
-                        addMyView(activityThread, activityRecord);
-                        break;
-                }
+    protected class ActivityThread_MessageDecorator extends ActivityThread_MessageTracer {
 
-                J.d(TAG, "<<< done: %s", msg.toString());
-            }
+        public ActivityThread_MessageDecorator(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+        }
 
-            private void addMyView(ActivityThread activityThread, Object activityRecord) {
-                HashMap<?, ?> mActivities = (HashMap<?, ?>)getObjectField(activityThread, "mActivities");
-                Activity activity = (Activity)getObjectField(activityRecord, "activity");
-
-                TextView textView = new TextView(activity);
-                String text = String.format("(%d)%s", mActivities.size(), activity.getPackageName());
-                textView.setText(text);
-
-                WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
-                layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION;
-                layoutParams.format = PixelFormat.RGBA_8888;
-                layoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-                layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
-                layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
-                layoutParams.gravity = Gravity.BOTTOM | Gravity.LEFT;
-
-                WindowManager windowManager = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
-                windowManager.addView(textView, layoutParams);
-
-                viewMap.put(activity, textView);
-            }
-
-            private void removeMyView(ActivityThread activityThread, IBinder token) {
+        @Override
+        protected void beforeMessageHandled(Message message) {
+            if (message.what == DESTROY_ACTIVITY) {
+                ActivityThread activityThread = ActivityThread.currentActivityThread();
+                IBinder token = (IBinder) message.obj;
                 Activity activity = activityThread.getActivity(token);
-                View view = viewMap.get(activity);
-
-                WindowManager windowManager = (WindowManager)activity.getSystemService(Context.WINDOW_SERVICE);
-                windowManager.removeViewImmediate(view);
-
-                viewMap.remove(activity);
+//                removeCustomView(activity);
             }
-        });
+        }
+
+        @Override
+        protected void afterMessageHandled(Message message) {
+            if (message.what == LAUNCH_ACTIVITY) {
+                Object activityRecord = message.obj;
+                Activity activity = (Activity) getObjectField(activityRecord, "activity");
+//                addCustomView(activity);
+            }
+        }
+    }
+
+    protected static class ViewRoot_MessageTracer extends GeneralMethodHook {
+        protected static final int MSG_INVALIDATE = 1;
+        protected static final int MSG_INVALIDATE_RECT = 2;
+        protected static final int MSG_DIE = 3;
+        protected static final int MSG_RESIZED = 4;
+        protected static final int MSG_RESIZED_REPORT = 5;
+        protected static final int MSG_WINDOW_FOCUS_CHANGED = 6;
+        protected static final int MSG_DISPATCH_INPUT_EVENT = 7;
+        protected static final int MSG_DISPATCH_APP_VISIBILITY = 8;
+        protected static final int MSG_DISPATCH_GET_NEW_SURFACE = 9;
+        protected static final int MSG_DISPATCH_KEY_FROM_IME = 11;
+        protected static final int MSG_FINISH_INPUT_CONNECTION = 12;
+        protected static final int MSG_CHECK_FOCUS = 13;
+        protected static final int MSG_CLOSE_SYSTEM_DIALOGS = 14;
+        protected static final int MSG_DISPATCH_DRAG_EVENT = 15;
+        protected static final int MSG_DISPATCH_DRAG_LOCATION_EVENT = 16;
+        protected static final int MSG_DISPATCH_SYSTEM_UI_VISIBILITY = 17;
+        protected static final int MSG_UPDATE_CONFIGURATION = 18;
+        protected static final int MSG_PROCESS_INPUT_EVENTS = 19;
+        protected static final int MSG_DISPATCH_SCREEN_STATE = 20;
+        protected static final int MSG_CLEAR_ACCESSIBILITY_FOCUS_HOST = 21;
+        protected static final int MSG_DISPATCH_DONE_ANIMATING = 22;
+        protected static final int MSG_INVALIDATE_WORLD = 23;
+        protected static final int MSG_WINDOW_MOVED = 24;
+        protected static final int MSG_FLUSH_LAYER_UPDATES = 25;
+
+        public ViewRoot_MessageTracer(LoadPackageParam packageParam) throws Throwable {
+            super(packageParam);
+
+            Class<?> clazz = findClass("android.view.ViewRootImpl$ViewRootHandler", null);
+            findAndHookMethod(clazz, "handleMessage", Message.class, this);
+        }
+
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            Message message = (Message) param.args[0];
+            beforeMessageHandled(message);
+        }
+
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            Message message = (Message) param.args[0];
+            afterMessageHandled(message);
+        }
+
+        protected void beforeMessageHandled(Message message) {
+            J.d(TAG, "[%s] >> handling: %s", packageParam.packageName, codeToString(message.what));
+        }
+
+        protected void afterMessageHandled(Message message) {
+            J.d(TAG, "[%s] << handling: %s", packageParam.packageName, codeToString(message.what));
+        }
+
+        private String codeToString(int code) {
+            switch (code) {
+                case MSG_INVALIDATE:
+                    return "MSG_INVALIDATE";
+                case MSG_INVALIDATE_RECT:
+                    return "MSG_INVALIDATE_RECT";
+                case MSG_DIE:
+                    return "MSG_DIE";
+                case MSG_RESIZED:
+                    return "MSG_RESIZED";
+                case MSG_RESIZED_REPORT:
+                    return "MSG_RESIZED_REPORT";
+                case MSG_WINDOW_FOCUS_CHANGED:
+                    return "MSG_WINDOW_FOCUS_CHANGED";
+                case MSG_DISPATCH_INPUT_EVENT:
+                    return "MSG_DISPATCH_INPUT_EVENT";
+                case MSG_DISPATCH_APP_VISIBILITY:
+                    return "MSG_DISPATCH_APP_VISIBILITY";
+                case MSG_DISPATCH_GET_NEW_SURFACE:
+                    return "MSG_DISPATCH_GET_NEW_SURFACE";
+                case MSG_DISPATCH_KEY_FROM_IME:
+                    return "MSG_DISPATCH_KEY_FROM_IME";
+                case MSG_FINISH_INPUT_CONNECTION:
+                    return "MSG_FINISH_INPUT_CONNECTION";
+                case MSG_CHECK_FOCUS:
+                    return "MSG_CHECK_FOCUS";
+                case MSG_CLOSE_SYSTEM_DIALOGS:
+                    return "MSG_CLOSE_SYSTEM_DIALOGS";
+                case MSG_DISPATCH_DRAG_EVENT:
+                    return "MSG_DISPATCH_DRAG_EVENT";
+                case MSG_DISPATCH_DRAG_LOCATION_EVENT:
+                    return "MSG_DISPATCH_DRAG_LOCATION_EVENT";
+                case MSG_DISPATCH_SYSTEM_UI_VISIBILITY:
+                    return "MSG_DISPATCH_SYSTEM_UI_VISIBILITY";
+                case MSG_UPDATE_CONFIGURATION:
+                    return "MSG_UPDATE_CONFIGURATION";
+                case MSG_PROCESS_INPUT_EVENTS:
+                    return "MSG_PROCESS_INPUT_EVENTS";
+                case MSG_DISPATCH_SCREEN_STATE:
+                    return "MSG_DISPATCH_SCREEN_STATE";
+                case MSG_CLEAR_ACCESSIBILITY_FOCUS_HOST:
+                    return "MSG_CLEAR_ACCESSIBILITY_FOCUS_HOST";
+                case MSG_DISPATCH_DONE_ANIMATING:
+                    return "MSG_DISPATCH_DONE_ANIMATING";
+                case MSG_INVALIDATE_WORLD:
+                    return "MSG_INVALIDATE_WORLD";
+                case MSG_WINDOW_MOVED:
+                    return "MSG_WINDOW_MOVED";
+                case MSG_FLUSH_LAYER_UPDATES:
+                    return "MSG_FLUSH_LAYER_UPDATES";
+            }
+
+            return String.format("(unknown of code %d)", code);
+        }
     }
 }
