@@ -80,7 +80,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="28e98f4a-39c0-4140-a882-6aecd9f64749" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/mod/GlobalHandler.java" afterPath="$PROJECT_DIR$/mod/src/main/java/com/jack/xposed/mod/GlobalHandler.java" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="com.jack.xposed.iws" />
@@ -1460,7 +1459,11 @@
       <created>1402577075224</created>
       <updated>1402577075224</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="add ...">
+      <created>1402618751208</created>
+      <updated>1402618751208</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="ToolWindowManager">
