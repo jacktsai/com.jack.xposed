@@ -1,6 +1,7 @@
 package com.jack.xposed.hooks;
 
 import com.jack.xposed.mod.GlobalHandler;
+import com.jack.xposed.mod.TosHandler;
 import com.jack.xposed.utils.J;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -16,9 +17,9 @@ public class XposedHookLoadPackage implements IXposedHookLoadPackage {
 
         GlobalHandler.getInstance().onLoadPackage(packageParam);
 
-        if (packageName.equals("com.madhead.tos.zh")) {
+//        if (packageName.equals("com.madhead.tos.zh")) {
 //            TosHandler tosHandler = new TosHandler();
 //            tosHandler.onLoadPackage(packageParam);
-        }
+//        }
     }
 }

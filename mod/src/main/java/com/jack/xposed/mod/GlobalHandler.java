@@ -8,8 +8,10 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.media.AudioTrack;
 import android.os.IBinder;
 import android.os.Message;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.HardwareCanvas;
 import android.view.View;
@@ -24,6 +26,7 @@ import com.jack.xposed.R;
 import com.jack.xposed.hooks.GeneralMethodHook;
 import com.jack.xposed.utils.J;
 
+import java.io.FileInputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -56,14 +59,16 @@ public class GlobalHandler {
     public void onLoadPackage(LoadPackageParam packageParam) throws Throwable {
         String packageName = packageParam.packageName;
 
-        new ActivityThread_MessageTracer(packageParam);
-        new Activity_Tracer(packageParam);
-
         new ActivityThread_MessageDecorator(packageParam);
         new Activity_Decorator(packageParam);
-        new ViewRootImpl_Decorator();
+        new ViewRootImpl_Decorator(packageParam);
+//        new FileInputStream_Tracer(packageParam);
+//        new AudioTrack_Tracer(packageParam);
 
         if (packageName.equals("com.jack.xposed")) {
+            new ActivityThread_MessageTracer(packageParam);
+            new Activity_Tracer(packageParam);
+
             new WindowManagerImpl_Tracer(packageParam);
             new WindowManagerGlobal_Tracer(packageParam);
             new PhoneWindow_Tracer(packageParam);
@@ -73,33 +78,61 @@ public class GlobalHandler {
         }
     }
 
-    private HashMap<Context, View> viewMap = new HashMap<Context, View>();
+    private class AudioTrack_Tracer extends GeneralMethodHook {
+        public AudioTrack_Tracer(LoadPackageParam packageParam) {
+            super(packageParam);
 
-    private void addCustomView(Activity activity) {
-        TextView textView = new TextView(activity);
-        String text = String.format("%s", activity.getComponentName().getClassName());
-        textView.setText(text);
+            Class clazz = AudioTrack.class;
 
-        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
-        layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
-        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
-        layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION;
-        layoutParams.format = PixelFormat.TRANSPARENT;
-        layoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-        layoutParams.gravity = Gravity.BOTTOM | Gravity.LEFT;
+            for (Constructor<?> method : clazz.getDeclaredConstructors()) {
+                hookMethod(method, this);
+            }
 
-        activity.getWindowManager().addView(textView, layoutParams);
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (Modifier.isPublic(method.getModifiers())) {
+                    String methodName = method.getName();
+                    if (methodName.equals("toString") || methodName.equals("write"))
+                        continue;
 
-        viewMap.put(activity, textView);
+                    hookMethod(method, this);
+                }
+            }
+        }
     }
 
-    private void removeCustomView(Activity activity) {
-        View view = viewMap.get(activity);
-        activity.getWindowManager().removeView(view);
-        viewMap.remove(activity);
+    private class FileInputStream_Tracer extends GeneralMethodHook {
+        public FileInputStream_Tracer(LoadPackageParam packageParam) {
+            super(packageParam);
+
+            if (packageParam.packageName.equals("com.madhead.tos.zh")) {
+                Class clazz = FileInputStream.class;
+
+                for (Constructor<?> method : clazz.getDeclaredConstructors()) {
+                    hookMethod(method, this);
+                }
+
+//                for (Method method : clazz.getDeclaredMethods()) {
+//                    if (Modifier.isPublic(method.getModifiers())) {
+//                        String methodName = method.getName();
+//                        if (methodName.equals("toString"))
+//                            continue;
+//
+//                        hookMethod(method, this);
+//                    }
+//                }
+            }
+        }
+
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            super.beforeHookedMethod(param);
+
+            if (param.method instanceof Constructor)
+                J.printStackTrace(TAG);
+        }
     }
 
-    protected static class PhoneWindow_Tracer extends GeneralMethodHook {
+    private class PhoneWindow_Tracer extends GeneralMethodHook {
         public PhoneWindow_Tracer(LoadPackageParam packageParam) throws Throwable {
             super(packageParam);
 
@@ -123,7 +156,7 @@ public class GlobalHandler {
         }
     }
 
-    protected static class DecorView_Tracer extends GeneralMethodHook {
+    private class DecorView_Tracer extends GeneralMethodHook {
         public DecorView_Tracer(LoadPackageParam packageParam) throws Throwable {
             super(packageParam);
 
@@ -143,7 +176,7 @@ public class GlobalHandler {
         }
     }
 
-    protected static class ViewRootImpl_Tracer extends GeneralMethodHook {
+    private class ViewRootImpl_Tracer extends GeneralMethodHook {
         public ViewRootImpl_Tracer(LoadPackageParam packageParam) throws Throwable {
             super(packageParam);
 
@@ -161,8 +194,8 @@ public class GlobalHandler {
         }
     }
 
-    protected static class ViewRootImpl_Decorator extends XC_MethodHook {
-        public ViewRootImpl_Decorator() throws Throwable {
+    private class ViewRootImpl_Decorator extends XC_MethodHook {
+        public ViewRootImpl_Decorator(LoadPackageParam packageParam) throws Throwable {
             Class<?> clazz = ViewRootImpl.class;
 
             findAndHookMethod(clazz, "onHardwarePostDraw", HardwareCanvas.class, this);
@@ -174,26 +207,19 @@ public class GlobalHandler {
             String methodName = method.getName();
             if (methodName.equals("onHardwarePostDraw")) {
                 HardwareCanvas canvas = (HardwareCanvas) param.args[0];
-                int width = getIntField(param.thisObject, "mWidth");
-                int height = getIntField(param.thisObject, "mHeight");
-                drawRect(canvas, new Rect(0, 0, width, height), Color.GREEN, 5);
+                Rect mWinFrame = (Rect) getObjectField(param.thisObject, "mWinFrame");
+
+                Paint paint = new Paint();
+                paint.setColor(Color.GREEN);
+                paint.setStrokeWidth(4);
+                paint.setStyle(Paint.Style.STROKE);
+
+                canvas.drawRect(mWinFrame, paint);
             }
-        }
-
-        private void drawRect(Canvas canvas, Rect rect, int color, int width) {
-            Paint paint = new Paint();
-            paint.setColor(color);
-            paint.setStrokeWidth(width);
-            paint.setStyle(Paint.Style.STROKE);
-
-            canvas.drawRect(rect, paint);
         }
     }
 
-    /**
-     * 已查證，每一個 app 會有自己一個 WindowManagerGlobal instance
-     */
-    protected static class WindowManagerImpl_Tracer extends GeneralMethodHook {
+    private class WindowManagerImpl_Tracer extends GeneralMethodHook {
         public WindowManagerImpl_Tracer(LoadPackageParam packageParam) throws Throwable {
             super(packageParam);
 
@@ -218,7 +244,7 @@ public class GlobalHandler {
     /**
      * 已查證，每一個 app 會有自己一個 WindowManagerGlobal instance
      */
-    protected static class WindowManagerGlobal_Tracer extends GeneralMethodHook {
+    private class WindowManagerGlobal_Tracer extends GeneralMethodHook {
         public WindowManagerGlobal_Tracer(LoadPackageParam packageParam) throws Throwable {
             super(packageParam);
 
@@ -230,7 +256,7 @@ public class GlobalHandler {
         }
     }
 
-    protected static class Activity_Tracer extends GeneralMethodHook {
+    private class Activity_Tracer extends GeneralMethodHook {
         public Activity_Tracer(LoadPackageParam packageParam) throws Throwable {
             super(packageParam);
 
@@ -253,15 +279,16 @@ public class GlobalHandler {
         }
     }
 
-    protected class Activity_Decorator extends XC_MethodHook {
+    private class Activity_Decorator extends XC_MethodHook {
         private final LoadPackageParam packageParam;
+        private final HashMap<Context, View> viewMap = new HashMap<Context, View>();
 
         public Activity_Decorator(LoadPackageParam packageParam) {
             this.packageParam = packageParam;
 
             hookAllMethods(Activity.class, "onResume", this);
             hookAllMethods(Activity.class, "onPause", this);
-            hookAllMethods(Activity.class, "doDestroy", this);
+            hookAllMethods(Activity.class, "onPostCreate", this);
         }
 
         @Override
@@ -270,6 +297,7 @@ public class GlobalHandler {
             String methodName = param.method.getName();
 
             if (methodName.equals("onPause")) {
+
                 removeCustomView(activity);
             }
         }
@@ -280,8 +308,11 @@ public class GlobalHandler {
             String methodName = param.method.getName();
 
             if (methodName.equals("onResume")) {
+
                 addCustomView(activity);
+
             } else if (methodName.equals("onPostCreate")) {
+
                 // 亂改其它 app 的 ID_ANDROID_CONTENT 會導致出錯，僅作於本 app 學習與測試用。
                 if (packageParam.packageName.equals("com.jack.xposed")) {
                     Window window = activity.getWindow();
@@ -295,9 +326,35 @@ public class GlobalHandler {
                 }
             }
         }
+
+        private void addCustomView(Activity activity) {
+            TextView textView = new TextView(activity);
+            String text = String.format("%s", activity.getComponentName().getClassName());
+            textView.setText(text);
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
+            textView.setTextColor(Color.YELLOW);
+
+            WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+            layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
+            layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION;
+            layoutParams.format = PixelFormat.OPAQUE;
+            layoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+            layoutParams.gravity = Gravity.BOTTOM | Gravity.LEFT;
+
+            activity.getWindowManager().addView(textView, layoutParams);
+
+            viewMap.put(activity, textView);
+        }
+
+        private void removeCustomView(Activity activity) {
+            View view = viewMap.get(activity);
+            activity.getWindowManager().removeView(view);
+            viewMap.remove(activity);
+        }
     }
 
-    protected static class ActivityThread_MessageTracer extends GeneralMethodHook {
+    private class ActivityThread_MessageTracer extends GeneralMethodHook {
         protected static final int LAUNCH_ACTIVITY = 100;
         protected static final int PAUSE_ACTIVITY = 101;
         protected static final int PAUSE_ACTIVITY_FINISHING = 102;
@@ -480,8 +537,7 @@ public class GlobalHandler {
         }
     }
 
-    protected class ActivityThread_MessageDecorator extends ActivityThread_MessageTracer {
-
+    private class ActivityThread_MessageDecorator extends ActivityThread_MessageTracer {
         public ActivityThread_MessageDecorator(LoadPackageParam packageParam) throws Throwable {
             super(packageParam);
         }
@@ -506,7 +562,7 @@ public class GlobalHandler {
         }
     }
 
-    protected static class ViewRoot_MessageTracer extends GeneralMethodHook {
+    private class ViewRoot_MessageTracer extends GeneralMethodHook {
         protected static final int MSG_INVALIDATE = 1;
         protected static final int MSG_INVALIDATE_RECT = 2;
         protected static final int MSG_DIE = 3;
