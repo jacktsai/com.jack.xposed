@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/com.jack.xposed.iml" filepath="$PROJECT_DIR$/com.jack.xposed.iml" />
       <module fileurl="file://$PROJECT_DIR$/mod/mod.iml" filepath="$PROJECT_DIR$/mod/mod.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tos/tos.iml" filepath="$PROJECT_DIR$/tos/tos.iml" />
     </modules>
   </component>
 </project>

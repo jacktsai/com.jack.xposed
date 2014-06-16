@@ -1,1 +1,1 @@
-include ':mod'
+include ':mod', ':tos'
