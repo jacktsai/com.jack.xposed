@@ -13,13 +13,16 @@ public class XposedHookLoadPackage implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(LoadPackageParam packageParam) throws Throwable {
         String packageName = packageParam.packageName;
-        J.i(TAG, "load package [%s]", packageName);
+        if (packageParam.appInfo != null)
+            J.i(TAG, "load package [%s] for [%s] from [%s]", packageName, packageParam.processName, packageParam.appInfo.sourceDir);
+        else
+            J.i(TAG, "load package [%s] for [%s]", packageName, packageParam.processName);
 
         GlobalHandler.getInstance().onLoadPackage(packageParam);
 
-//        if (packageName.equals("com.madhead.tos.zh")) {
-//            TosHandler tosHandler = new TosHandler();
-//            tosHandler.onLoadPackage(packageParam);
-//        }
+        if (packageName.equals("com.madhead.tos.zh")) {
+            TosHandler tosHandler = new TosHandler();
+            tosHandler.onLoadPackage(packageParam);
+        }
     }
 }

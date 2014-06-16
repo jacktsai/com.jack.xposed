@@ -1,7 +1,10 @@
 package com.jack.xposed.mod;
 
+import android.app.ActivityManager;
+import android.app.ActivityManager.RunningAppProcessInfo;
 import android.media.AudioTrack;
 
+import com.jack.xposed.hooks.ActivityManager_Tracer;
 import com.jack.xposed.hooks.GeneralMethodHook;
 import com.jack.xposed.utils.J;
 
@@ -17,9 +20,11 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.HashMap;
+import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 import static de.robv.android.xposed.XposedBridge.hookMethod;
@@ -52,12 +57,44 @@ public class TosHandler {
 //        hook_PlayerPrefs(packageParam);
 
 //        hook_WWW(packageParam);
-//        hook_URL(packageParam);
+        hook_URL(packageParam);
 //        hook_URLConnection(packageParam);
 //        hook_OutputStream(packageParam);
 //        hook_InputStream(packageParam);
 
-        new FMODAudioDevice_Tracer(packageParam);
+//        new FMODAudioDevice_Tracer(packageParam);
+//        new ActivityManager_Tracer(packageParam);
+//        new ActivityManager_Decorator();
+    }
+
+    private class ActivityManager_Decorator extends XC_MethodHook {
+        public ActivityManager_Decorator() {
+            super(0);
+
+            Class clazz = ActivityManager.class;
+
+            for (Method method : clazz.getDeclaredMethods()) {
+                String methodName = method.getName();
+                if (methodName.equals("getRunningAppProcesses"))
+                    hookMethod(method, this);
+            }
+        }
+
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            List<RunningAppProcessInfo> processInfoList = (List<RunningAppProcessInfo>) param.getResult();
+
+            RunningAppProcessInfo sbToolInfo = null;
+            for (RunningAppProcessInfo processInfo : processInfoList) {
+                if (processInfo.processName == "org.sbtools.gamehack") {
+                    sbToolInfo = processInfo;
+                    break;
+                }
+            }
+
+            if (sbToolInfo != null)
+                processInfoList.remove(sbToolInfo);
+        }
     }
 
     private static class FMODAudioDevice_Tracer extends GeneralMethodHook {
@@ -108,11 +145,11 @@ public class TosHandler {
             Class<?>[] p = method.getParameterTypes();
 
             if (name.equals("isFinishing") ||
-                name.equals("onDrawFrame") ||
-                name.equals("queueEvent") ||
-                name.equals("getFilesDir") ||
-                name.equals("dispatchTouchEvent") ||
-                name.equals("onTouchEvent"))
+                    name.equals("onDrawFrame") ||
+                    name.equals("queueEvent") ||
+                    name.equals("getFilesDir") ||
+                    name.equals("dispatchTouchEvent") ||
+                    name.equals("onTouchEvent"))
                 continue;
 
             if (name.equals("a")) {
@@ -179,7 +216,7 @@ public class TosHandler {
                 super.afterHookedMethod(param);
 
                 URL url = (URL) param.thisObject;
-                J.d(TosHandler.TAG, "URL: %s", url.toExternalForm());
+                J.d(TAG, "URL: %s", url.toExternalForm());
 
                 if (url.getAuthority().contains("towerofsaviors")) {
                     FileOutputStream log = getOutputFile(url);
@@ -199,21 +236,22 @@ public class TosHandler {
                 URL url = connection.getURL();
                 if (url.getAuthority().contains("towerofsaviors")) {
                     String methodName = param.method.getName();
-                    if (methodName.equals("getOutputStream")) {
-                        OutputStream origin = (OutputStream) param.getResult();
-                        if (origin instanceof MyOutputStream) {
-                        } else {
-                            OutputStream substitute = new MyOutputStream(origin, url);
-                            param.setResult(substitute);
-                        }
-                    } else if (param.method.getName().equals("getInputStream")) {
-                        InputStream origin = (InputStream) param.getResult();
-                        if (origin instanceof MyInputStream) {
-                        } else {
-                            InputStream substitute = new MyInputStream(origin, url);
-                            param.setResult(substitute);
-                        }
-                    }
+
+//                    if (methodName.equals("getOutputStream")) {
+//                        OutputStream origin = (OutputStream) param.getResult();
+//                        if (origin instanceof MyOutputStream) {
+//                        } else {
+//                            OutputStream substitute = new MyOutputStream(origin, url);
+//                            param.setResult(substitute);
+//                        }
+//                    } else if (param.method.getName().equals("getInputStream")) {
+//                        InputStream origin = (InputStream) param.getResult();
+//                        if (origin instanceof MyInputStream) {
+//                        } else {
+//                            InputStream substitute = new MyInputStream(origin, url);
+//                            param.setResult(substitute);
+//                        }
+//                    }
 
                     super.afterHookedMethod(param);
                 }

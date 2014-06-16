@@ -1,6 +1,7 @@
 package com.jack.xposed.mod;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.ActivityThread;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 
 import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 import static de.robv.android.xposed.XposedBridge.hookAllMethods;
@@ -63,7 +65,6 @@ public class GlobalHandler {
         new Activity_Decorator(packageParam);
         new ViewRootImpl_Decorator(packageParam);
 //        new FileInputStream_Tracer(packageParam);
-//        new AudioTrack_Tracer(packageParam);
 
         if (packageName.equals("com.jack.xposed")) {
             new ActivityThread_MessageTracer(packageParam);
