@@ -9,6 +9,7 @@ import java.util.HashMap;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
+import de.robv.android.xposed.callbacks.XCallback;
 
 public class GeneralMethodHook extends XC_MethodHook {
     protected static final String TAG = "MethodHook";
@@ -16,8 +17,13 @@ public class GeneralMethodHook extends XC_MethodHook {
     protected final LoadPackageParam packageParam;
     private HashMap<Thread, Integer> indentMap = new HashMap<Thread, Integer>();
 
-    public GeneralMethodHook(LoadPackageParam packageParam) {
+    public GeneralMethodHook(LoadPackageParam packageParam, int priority) {
+        super(priority);
         this.packageParam = packageParam;
+    }
+
+    public GeneralMethodHook(LoadPackageParam packageParam) {
+        this(packageParam, XCallback.PRIORITY_DEFAULT);
     }
 
     @Override
