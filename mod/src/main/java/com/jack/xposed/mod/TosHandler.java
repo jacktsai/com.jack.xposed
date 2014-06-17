@@ -2,28 +2,26 @@ package com.jack.xposed.mod;
 
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningAppProcessInfo;
+import android.net.Uri;
 
 import com.jack.xposed.hooks.GeneralMethodHook;
 import com.jack.xposed.utils.J;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.StringReader;
+import java.io.OutputStreamWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.ArrayList;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -36,7 +34,6 @@ import static de.robv.android.xposed.XposedBridge.hookMethod;
 import static de.robv.android.xposed.XposedHelpers.findClass;
 
 public class TosHandler {
-    private static final String TAG = TosHandler.class.getSimpleName();
     private static final String LOG_DIR = "/sdcard/ToS_traces";
     private static HashMap<String, FileOutputStream> fileMap = new HashMap<String, FileOutputStream>();
 
@@ -73,23 +70,6 @@ public class TosHandler {
 //        new PackageManager_Decorator();
     }
 
-    private void hook_URL(LoadPackageParam packageParam) throws Throwable {
-        Class<?> clazz = Class.forName("java.net.URL", false, packageParam.classLoader);
-        XC_MethodHook hook = new GeneralMethodHook(packageParam) {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-            }
-
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                URL url = (URL) param.thisObject;
-                String urlString = url.toExternalForm();
-                J.d(TAG, "open URL: %s", urlString);
-            }
-        };
-        XposedBridge.hookAllMethods(clazz, "openConnection", hook);
-    }
-
     private class PackageManager_Decorator extends XC_MethodHook {
         public PackageManager_Decorator() {
             super(XCallback.PRIORITY_LOWEST);
@@ -103,11 +83,15 @@ public class TosHandler {
 
     private class Portal_Tracer extends GeneralMethodHook {
         public Portal_Tracer(LoadPackageParam packageParam) {
-            super(packageParam, XCallback.PRIORITY_LOWEST);
+            super(packageParam, XCallback.PRIORITY_HIGHEST);
 
             Class clazz = findClass("com.madhead.tos.plugins.Portal", packageParam.classLoader);
 
             for (Method method : clazz.getDeclaredMethods()) {
+                String methodName = method.getName();
+                if (methodName.equals("GetAvailableSpace"))
+                    continue;
+
                 hookMethod(method, this);
             }
         }
@@ -254,33 +238,81 @@ public class TosHandler {
         XposedBridge.hookAllConstructors(clazz, hook);
     }
 
+    private void hook_URL(LoadPackageParam packageParam) throws Throwable {
+        Class<?> clazz = Class.forName("java.net.URL", false, packageParam.classLoader);
+        XC_MethodHook hook = new GeneralMethodHook(packageParam) {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            }
+
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                URL url = (URL) param.thisObject;
+                String urlString = url.toExternalForm();
+                J.d(TAG, "open URL: %s", urlString);
+
+                Uri uri = Uri.parse(urlString);
+                if (url.getAuthority().contains("towerofsaviors")) {
+                    OutputStream log = getOutputStream(uri);
+                    if (log != null) {
+                        BufferedWriter logWriter = new BufferedWriter(new OutputStreamWriter(log));
+                        J.printStackTrace(logWriter);
+                        logWriter.write("\n");
+                        logWriter.write(urlString + "\n\n");
+                        logWriter.flush();
+                        log.close();
+                    }
+                }
+            }
+        };
+        XposedBridge.hookAllMethods(clazz, "openConnection", hook);
+    }
+
     private void hook_URLConnection(LoadPackageParam packageParam) throws Throwable {
         XC_MethodHook hook = new GeneralMethodHook(packageParam) {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 URLConnection connection = (URLConnection) param.thisObject;
                 URL url = connection.getURL();
-                if (url.getAuthority().contains("towerofsaviors")) {
-                    String methodName = param.method.getName();
+                String urlString = url.toExternalForm();
+                Uri uri = Uri.parse(urlString);
+                String methodName = param.method.getName();
 
+                if (url.getAuthority().contains("towerofsaviors")) {
                     if (methodName.equals("getOutputStream")) {
-//                        OutputStream origin = (OutputStream) param.getResult();
-//                        if (origin instanceof MyOutputStream) {
-//                        } else {
-//                            OutputStream substitute = new MyOutputStream(origin, url);
-//                            param.setResult(substitute);
-//                        }
-                    } else if (param.method.getName().equals("getInputStream")) {
+                        OutputStream origin = (OutputStream) param.getResult();
+                        if (origin instanceof MyOutputStream) {
+                        } else {
+                            OutputStream log = getOutputStream(uri);
+                            BufferedWriter logWriter;
+                            if (log != null) {
+                                logWriter = new BufferedWriter(new OutputStreamWriter(log));
+                                logWriter.write("[REQUEST CONTENT]\n");
+                                logWriter.flush();
+                            }
+
+                            OutputStream substitute = new MyOutputStream(origin, log);
+                            param.setResult(substitute);
+                        }
+                    } else if (methodName.equals("getInputStream")) {
                         InputStream origin = (InputStream) param.getResult();
                         if (origin instanceof MyInputStream) {
                         } else {
-                            InputStream substitute = new MyInputStream(origin);
+                            OutputStream log = getOutputStream(uri);
+                            BufferedWriter logWriter;
+                            if (log != null) {
+                                logWriter = new BufferedWriter(new OutputStreamWriter(log));
+                                logWriter.write("[RESPONSE CONTENT]\n");
+                                logWriter.flush();
+                            }
+
+                            InputStream substitute = new MyInputStream(origin, log);
                             param.setResult(substitute);
                         }
                     }
-
-                    super.afterHookedMethod(param);
                 }
+
+                super.afterHookedMethod(param);
             }
         };
 
@@ -289,7 +321,8 @@ public class TosHandler {
             if (methodName.equals("toString") || methodName.equals("getURL"))
                 continue;
 
-            if (Modifier.isPublic(method.getModifiers()))
+//            if (Modifier.isPublic(method.getModifiers()))
+            if (methodName.equals("getInputStream"))
                 XposedBridge.hookMethod(method, hook);
         }
 
@@ -298,7 +331,8 @@ public class TosHandler {
             if (methodName.equals("toString") || methodName.equals("getURL"))
                 continue;
 
-            if (Modifier.isPublic(method.getModifiers()))
+//            if (Modifier.isPublic(method.getModifiers()))
+            if (methodName.equals("getInputStream"))
                 XposedBridge.hookMethod(method, hook);
         }
     }
@@ -329,66 +363,59 @@ public class TosHandler {
         }
     }
 
+    private OutputStream getOutputStream(Uri uri) throws Throwable{
+        String timestamp = uri.getQueryParameter("timestamp");
+        if (timestamp == null || timestamp.length() < 1)
+            return null;
+
+        File dir = new File(String.format("/sdcard/ToS/%s", uri.getPath()));
+        dir.mkdirs();
+        File file = new File(dir, timestamp + ".txt");
+
+        return new FileOutputStream(file, true);
+    }
+
     private class MyOutputStream extends OutputStream {
+        private final OutputStream log;
         private final OutputStream inner;
-        private final FileOutputStream log;
 
-        public MyOutputStream(OutputStream inner, URL url) {
-            this.inner = inner;
-
-            String message = String.format("\n[request]\n");
-            log = getOutputFile(url);
-            try {
-                log.write(message.getBytes("UTF-8"));
-                log.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        public MyOutputStream(OutputStream source, OutputStream log) throws Throwable {
+            this.log = log;
+            this.inner = source;
         }
 
         @Override
         public void close() throws IOException {
+            if (log != null)
+                log.close();
+
             inner.close();
         }
 
         @Override
         public void flush() throws IOException {
+            if (log != null)
+                log.flush();
+
             inner.flush();
         }
 
         @Override
         public void write(int oneByte) throws IOException {
+            if (log != null)
+                log.write(oneByte);
+
             inner.write(oneByte);
-            log.write(oneByte);
-            log.flush();
         }
     }
 
     private class MyInputStream extends InputStream {
+        private final OutputStream log;
         private final InputStream inner;
 
-        public MyInputStream(InputStream source) throws Throwable {
-            ArrayList<Byte> buffer = new ArrayList<Byte>();
-            while(true) {
-                int data = source.read();
-                if (data != -1)
-                    buffer.add((byte) data);
-                else
-                    break;
-            }
-
-            byte[] data = new byte[buffer.size()];
-            for (int i = 0; i < data.length; i++)
-                data[i] = buffer.get(i);
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(data)));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                J.d(TAG, line);
-            }
-            reader.close();
-
-            inner = new ByteArrayInputStream(data);
+        public MyInputStream(InputStream source, OutputStream log) throws Throwable {
+            this.log = log;
+            this.inner = source;
         }
 
         @Override
@@ -398,6 +425,9 @@ public class TosHandler {
 
         @Override
         public void close() throws IOException {
+            if (log != null)
+                log.close();
+
             inner.close();
         }
 
@@ -413,7 +443,12 @@ public class TosHandler {
 
         @Override
         public int read() throws IOException {
-            return inner.read();
+            int data = inner.read();
+
+            if (log != null)
+                log.write(data);
+
+            return data;
         }
 
         @Override
