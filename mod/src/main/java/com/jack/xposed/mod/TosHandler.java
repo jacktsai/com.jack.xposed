@@ -9,17 +9,24 @@ import com.jack.xposed.hooks.GeneralMethodHook;
 import com.jack.xposed.hooks.PackageMaanger_Tracer;
 import com.jack.xposed.utils.J;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -57,7 +64,7 @@ public class TosHandler {
 
 //        hook_WWW(packageParam);
         hook_URL(packageParam);
-//        hook_URLConnection(packageParam);
+        hook_URLConnection(packageParam);
 //        hook_OutputStream(packageParam);
 //        hook_InputStream(packageParam);
 
@@ -82,18 +89,17 @@ public class TosHandler {
                 String urlString = url.toExternalForm();
                 J.d(TAG, "open URL: %s", urlString);
                 if (urlString.contains("floor/complete")) {
-//                    URLConnection urlConnection = (URLConnection) param.getResult();
-//                    InputStream inputStream = urlConnection.getInputStream();
-//                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-//                    String line;
-//                    while ((line = reader.readLine()) != null) {
-//                        J.d(TAG, line);
-//                    }
-//                    reader.close();
-//                    inputStream.close();
-//
-//                InputStream()
-//                BufferedWriter writer = new BufferedWriter(OutputStreamWriter());
+                    URLConnection urlConnection = (URLConnection) param.getResult();
+                    InputStream inputStream = urlConnection.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        J.d(TAG, line);
+                    }
+                    reader.close();
+                    inputStream.close();
+
+
                 }
             }
         };
@@ -310,21 +316,21 @@ public class TosHandler {
                 if (url.getAuthority().contains("towerofsaviors")) {
                     String methodName = param.method.getName();
 
-//                    if (methodName.equals("getOutputStream")) {
+                    if (methodName.equals("getOutputStream")) {
 //                        OutputStream origin = (OutputStream) param.getResult();
 //                        if (origin instanceof MyOutputStream) {
 //                        } else {
 //                            OutputStream substitute = new MyOutputStream(origin, url);
 //                            param.setResult(substitute);
 //                        }
-//                    } else if (param.method.getName().equals("getInputStream")) {
-//                        InputStream origin = (InputStream) param.getResult();
-//                        if (origin instanceof MyInputStream) {
-//                        } else {
-//                            InputStream substitute = new MyInputStream(origin, url);
-//                            param.setResult(substitute);
-//                        }
-//                    }
+                    } else if (param.method.getName().equals("getInputStream")) {
+                        InputStream origin = (InputStream) param.getResult();
+                        if (origin instanceof MyInputStream) {
+                        } else {
+                            InputStream substitute = new MyInputStream(origin);
+                            param.setResult(substitute);
+                        }
+                    }
 
                     super.afterHookedMethod(param);
                 }
@@ -413,19 +419,29 @@ public class TosHandler {
 
     private class MyInputStream extends InputStream {
         private final InputStream inner;
-        private final FileOutputStream log;
 
-        public MyInputStream(InputStream inner, URL url) {
-            this.inner = inner;
-
-            String message = String.format("\n[response]\n");
-            log = getOutputFile(url);
-            try {
-                log.write(message.getBytes("UTF-8"));
-                log.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
+        public MyInputStream(InputStream source) throws Throwable {
+            ArrayList<Byte> buffer = new ArrayList<Byte>();
+            while(true) {
+                int data = source.read();
+                if (data != -1)
+                    buffer.add((byte) data);
+                else
+                    break;
             }
+
+            byte[] data = new byte[buffer.size()];
+            for (int i = 0; i < data.length; i++)
+                data[i] = buffer.get(i);
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(data)));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                J.d(TAG, line);
+            }
+            reader.close();
+
+            inner = new ByteArrayInputStream(data);
         }
 
         @Override
@@ -450,16 +466,7 @@ public class TosHandler {
 
         @Override
         public int read() throws IOException {
-            int oneByte = inner.read();
-
-            if (oneByte == -1) {
-                log.write("\n".getBytes("UTF-8"));
-            } else {
-                log.write(oneByte);
-            }
-            log.flush();
-
-            return oneByte;
+            return inner.read();
         }
 
         @Override
