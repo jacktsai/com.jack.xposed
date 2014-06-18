@@ -66,7 +66,7 @@ public class TosHandler {
 //        new ActivityManager_Tracer(packageParam);
 //        new ActivityManager_Decorator();
 //        new PackageMaanger_Tracer(packageParam);
-        new Portal_Tracer(packageParam);
+//        new Portal_Tracer(packageParam);
 //        new PackageManager_Decorator();
     }
 
@@ -256,9 +256,7 @@ public class TosHandler {
                     OutputStream log = getOutputStream(uri);
                     if (log != null) {
                         BufferedWriter logWriter = new BufferedWriter(new OutputStreamWriter(log));
-                        J.printStackTrace(logWriter);
-                        logWriter.write("\n");
-                        logWriter.write(urlString + "\n\n");
+                        logWriter.write(urlString + "\r\n\r\n");
                         logWriter.flush();
                         log.close();
                     }
@@ -287,7 +285,7 @@ public class TosHandler {
                             BufferedWriter logWriter;
                             if (log != null) {
                                 logWriter = new BufferedWriter(new OutputStreamWriter(log));
-                                logWriter.write("[REQUEST CONTENT]\n");
+                                logWriter.write("[REQUEST CONTENT]\r\n");
                                 logWriter.flush();
                             }
 
@@ -302,7 +300,7 @@ public class TosHandler {
                             BufferedWriter logWriter;
                             if (log != null) {
                                 logWriter = new BufferedWriter(new OutputStreamWriter(log));
-                                logWriter.write("[RESPONSE CONTENT]\n");
+                                logWriter.write("[RESPONSE CONTENT]\r\n");
                                 logWriter.flush();
                             }
 

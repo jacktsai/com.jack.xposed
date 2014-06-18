@@ -61,14 +61,14 @@ public class GlobalHandler {
     public void onLoadPackage(LoadPackageParam packageParam) throws Throwable {
         String packageName = packageParam.packageName;
 
-        new ActivityThread_MessageDecorator(packageParam);
-        new Activity_Decorator(packageParam);
-        new ViewRootImpl_Decorator(packageParam);
+//        new ActivityThread_MessageDecorator(packageParam);
+//        new ViewRootImpl_Decorator(packageParam);
 //        new FileInputStream_Tracer(packageParam);
 
         if (packageName.equals("com.jack.xposed")) {
             new ActivityThread_MessageTracer(packageParam);
             new Activity_Tracer(packageParam);
+            new Activity_Decorator(packageParam);
 
             new WindowManagerImpl_Tracer(packageParam);
             new WindowManagerGlobal_Tracer(packageParam);
