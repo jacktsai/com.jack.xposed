@@ -34,31 +34,13 @@ import static de.robv.android.xposed.XposedBridge.hookMethod;
 import static de.robv.android.xposed.XposedHelpers.findClass;
 
 public class TosHandler {
-    private static final String LOG_DIR = "/sdcard/ToS_traces";
-    private static HashMap<String, FileOutputStream> fileMap = new HashMap<String, FileOutputStream>();
-
-    private static FileOutputStream getOutputFile(URL url) {
-        String filePath = String.format("%s/%s", LOG_DIR, url.getAuthority());
-        FileOutputStream file = fileMap.get(filePath);
-        if (file == null) {
-            try {
-                file = new FileOutputStream(filePath, true);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
-            fileMap.put(filePath, file);
-        }
-
-        return file;
-    }
-
     public void onLoadPackage(LoadPackageParam packageParam) throws Throwable {
 //        hook_UnityPlayer(packageParam);
 //        hook_PlayerPrefs(packageParam);
 
 //        hook_WWW(packageParam);
         hook_URL(packageParam);
-        hook_URLConnection(packageParam);
+//        hook_URLConnection(packageParam);
 //        hook_OutputStream(packageParam);
 //        hook_InputStream(packageParam);
 
@@ -250,17 +232,6 @@ public class TosHandler {
                 URL url = (URL) param.thisObject;
                 String urlString = url.toExternalForm();
                 J.d(TAG, "open URL: %s", urlString);
-
-                Uri uri = Uri.parse(urlString);
-                if (url.getAuthority().contains("towerofsaviors")) {
-                    OutputStream log = getOutputStream(uri);
-                    if (log != null) {
-                        BufferedWriter logWriter = new BufferedWriter(new OutputStreamWriter(log));
-                        logWriter.write(urlString + "\r\n\r\n");
-                        logWriter.flush();
-                        log.close();
-                    }
-                }
             }
         };
         XposedBridge.hookAllMethods(clazz, "openConnection", hook);
@@ -366,7 +337,7 @@ public class TosHandler {
         if (timestamp == null || timestamp.length() < 1)
             return null;
 
-        File dir = new File(String.format("/sdcard/ToS/%s", uri.getPath()));
+        File dir = new File(String.format("/sdcard/xposed/%s", uri.getPath()));
         dir.mkdirs();
         File file = new File(dir, timestamp + ".txt");
 

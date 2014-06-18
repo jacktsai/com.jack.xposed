@@ -9,6 +9,7 @@ public class PackageHandler implements IXposedHookLoadPackage {
         if (packageParam.packageName.equals("com.madhead.tos.zh")) {
             new PackageManagerHook(packageParam);
             new PortalHook(packageParam);
+            new UrlRequestLogger(packageParam);
         }
     }
 }
