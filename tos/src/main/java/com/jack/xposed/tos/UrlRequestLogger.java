@@ -12,6 +12,8 @@ import java.io.OutputStreamWriter;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
@@ -100,7 +102,8 @@ public class UrlRequestLogger {
         if (timestamp == null || timestamp.length() < 1)
             return null;
 
-        File dir = new File(String.format("/sdcard/ToS/%s", uri.getPath()));
+        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+        File dir = new File(String.format("/sdcard/ToS/%s/%s", uri.getPath(), format.format(new Date())));
         dir.mkdirs();
         File file = new File(dir, timestamp + ".txt");
 
