@@ -2,6 +2,7 @@ package com.jack.xposed.mod;
 
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningAppProcessInfo;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 
 import com.jack.xposed.hooks.GeneralMethodHook;
@@ -47,8 +48,8 @@ public class TosHandler {
 //        new FMODAudioDevice_Tracer(packageParam);
 //        new ActivityManager_Tracer(packageParam);
 //        new ActivityManager_Decorator();
-//        new PackageMaanger_Tracer(packageParam);
-//        new Portal_Tracer(packageParam);
+        new PackageMaanger_Tracer(packageParam);
+        new Portal_Tracer(packageParam);
 //        new PackageManager_Decorator();
     }
 
@@ -59,6 +60,33 @@ public class TosHandler {
             Class clazz = findClass("android.app.ApplicationPackageManager", null);
 
             for (Method method : clazz.getDeclaredMethods()) {
+            }
+        }
+    }
+
+    private class PackageMaanger_Tracer extends GeneralMethodHook {
+        public PackageMaanger_Tracer(LoadPackageParam packageParam) {
+            super(packageParam, XCallback.PRIORITY_HIGHEST);
+
+            Class clazz = findClass("android.app.ApplicationPackageManager", packageParam.classLoader);
+
+            for (Method method : clazz.getDeclaredMethods()) {
+                String methodName = method.getName();
+                if (methodName.equals("getPackageInfo"))
+                    hookMethod(method, this);
+            }
+        }
+
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            super.afterHookedMethod(param);
+
+            PackageInfo result = (PackageInfo) param.getResult();
+            J.d(TAG, "versionCode: %d", result.versionCode);
+            J.d(TAG, "versionName: %s", result.versionName);
+
+            if (result.signatures != null && result.signatures.length == 1) {
+                J.d(TAG, "signature: %s", result.signatures[0].toCharsString());
             }
         }
     }

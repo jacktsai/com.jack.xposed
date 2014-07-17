@@ -14,7 +14,7 @@
             android:value="54"/>
         <meta-data
             android:name="xposeddescription"
-            android:value="Xposed module for ToS v6.05"/>
+            android:value="Xposed module for ToS v7.01"/>
 
     </application>
 
