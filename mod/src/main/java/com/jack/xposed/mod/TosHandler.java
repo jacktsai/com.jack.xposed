@@ -10,7 +10,6 @@ import com.jack.xposed.utils.J;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,9 +20,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLConnection;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -48,7 +44,7 @@ public class TosHandler {
 //        new FMODAudioDevice_Tracer(packageParam);
 //        new ActivityManager_Tracer(packageParam);
 //        new ActivityManager_Decorator();
-        new PackageMaanger_Tracer(packageParam);
+        new PackageManager_Tracer(packageParam);
         new Portal_Tracer(packageParam);
 //        new PackageManager_Decorator();
     }
@@ -64,15 +60,15 @@ public class TosHandler {
         }
     }
 
-    private class PackageMaanger_Tracer extends GeneralMethodHook {
-        public PackageMaanger_Tracer(LoadPackageParam packageParam) {
+    private class PackageManager_Tracer extends GeneralMethodHook {
+        public PackageManager_Tracer(LoadPackageParam packageParam) {
             super(packageParam, XCallback.PRIORITY_HIGHEST);
 
             Class clazz = findClass("android.app.ApplicationPackageManager", packageParam.classLoader);
 
             for (Method method : clazz.getDeclaredMethods()) {
                 String methodName = method.getName();
-                if (methodName.equals("getPackageInfo"))
+//                if (methodName.equals("getPackageInfo"))
                     hookMethod(method, this);
             }
         }
@@ -81,12 +77,11 @@ public class TosHandler {
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             super.afterHookedMethod(param);
 
-            PackageInfo result = (PackageInfo) param.getResult();
-            J.d(TAG, "versionCode: %d", result.versionCode);
-            J.d(TAG, "versionName: %s", result.versionName);
-
-            if (result.signatures != null && result.signatures.length == 1) {
-                J.d(TAG, "signature: %s", result.signatures[0].toCharsString());
+            if (param.method.getName().equals("getPackageInfo")) {
+                PackageInfo result = (PackageInfo) param.getResult();
+                if (result.signatures != null && result.signatures.length == 1) {
+                    J.d(TAG, "signature: %s", result.signatures[0].toCharsString());
+                }
             }
         }
     }
