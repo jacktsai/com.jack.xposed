@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -42,11 +43,80 @@ public class TosHandler {
 //        hook_InputStream(packageParam);
 
 //        new FMODAudioDevice_Tracer(packageParam);
-//        new ActivityManager_Tracer(packageParam);
 //        new ActivityManager_Decorator();
-        new PackageManager_Tracer(packageParam);
-        new Portal_Tracer(packageParam);
 //        new PackageManager_Decorator();
+
+        new Android_Tracer(packageParam);
+        new Plugins_Tracer(packageParam);
+    }
+
+    private class Android_Tracer extends GeneralMethodHook {
+        public Android_Tracer(LoadPackageParam packageParam) {
+            super(packageParam, XCallback.PRIORITY_HIGHEST);
+
+            List<String> classNames = new ArrayList<>();
+            classNames.add("android.app.ApplicationPackageManager");
+            classNames.add("android.content.ContextWrapper");
+
+            for (String className : classNames){
+                Class clazz = findClass(className, packageParam.classLoader);
+                for (Method method : clazz.getDeclaredMethods()) {
+                    String methodName = method.getName();
+
+                    if (className.equals("android.app.ApplicationPackageManager")) {
+                        if (!methodName.equals("getPackageInfo"))
+                            continue;
+                    }
+
+                    if (className.equals("android.content.ContextWrapper")) {
+                        if (!methodName.equals("getPackageCodePath"))
+                            continue;
+                    }
+
+                    hookMethod(method, this);
+                }
+            }
+        }
+
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            super.afterHookedMethod(param);
+            if (param.method.getName().equals("getPackageInfo")) {
+                PackageInfo result = (PackageInfo)param.getResult();
+                J.d(TAG, "source: %s", result.applicationInfo.sourceDir);
+                J.d(TAG, "package name: %s", result.packageName);
+                if (result.signatures != null) {
+                    for (int i = 0; i < result.signatures.length; i++)
+                        J.d(TAG, "signature#%d: %s", i, result.signatures[i].toCharsString());
+                }
+            }
+        }
+    }
+
+    private class Plugins_Tracer extends GeneralMethodHook {
+        public Plugins_Tracer(LoadPackageParam packageParam) {
+            super(packageParam, XCallback.PRIORITY_HIGHEST);
+
+            List<String> classNames = new ArrayList<>();
+            classNames.add("com.madhead.tos.plugins.AssetsExists");
+            classNames.add("com.madhead.tos.plugins.Portal");
+            classNames.add("com.madhead.tos.plugins.UserInformation");
+            classNames.add("com.madhead.tos.plugins.acs.AntiCheatSystem");
+            classNames.add("com.madhead.tos.plugins.acs.ExecShell");
+            classNames.add("com.madhead.tos.plugins.acs.Root");
+
+            for (String className : classNames){
+                Class clazz = findClass(className, packageParam.classLoader);
+                for (Method method : clazz.getDeclaredMethods()) {
+                    String methodName = method.getName();
+
+                    if (className.equals("com.madhead.tos.plugins.Portal") && methodName.equals("GetAvailableSpace"))
+                        continue;
+
+                    hookMethod(method, this);
+                }
+            }
+        }
     }
 
     private class PackageManager_Decorator extends XC_MethodHook {
@@ -56,48 +126,6 @@ public class TosHandler {
             Class clazz = findClass("android.app.ApplicationPackageManager", null);
 
             for (Method method : clazz.getDeclaredMethods()) {
-            }
-        }
-    }
-
-    private class PackageManager_Tracer extends GeneralMethodHook {
-        public PackageManager_Tracer(LoadPackageParam packageParam) {
-            super(packageParam, XCallback.PRIORITY_HIGHEST);
-
-            Class clazz = findClass("android.app.ApplicationPackageManager", packageParam.classLoader);
-
-            for (Method method : clazz.getDeclaredMethods()) {
-                String methodName = method.getName();
-//                if (methodName.equals("getPackageInfo"))
-                    hookMethod(method, this);
-            }
-        }
-
-        @Override
-        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-            super.afterHookedMethod(param);
-
-            if (param.method.getName().equals("getPackageInfo")) {
-                PackageInfo result = (PackageInfo) param.getResult();
-                if (result.signatures != null && result.signatures.length == 1) {
-                    J.d(TAG, "signature: %s", result.signatures[0].toCharsString());
-                }
-            }
-        }
-    }
-
-    private class Portal_Tracer extends GeneralMethodHook {
-        public Portal_Tracer(LoadPackageParam packageParam) {
-            super(packageParam, XCallback.PRIORITY_HIGHEST);
-
-            Class clazz = findClass("com.madhead.tos.plugins.Portal", packageParam.classLoader);
-
-            for (Method method : clazz.getDeclaredMethods()) {
-                String methodName = method.getName();
-                if (methodName.equals("GetAvailableSpace"))
-                    continue;
-
-                hookMethod(method, this);
             }
         }
     }

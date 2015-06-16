@@ -7,9 +7,10 @@ public class PackageHandler implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(LoadPackageParam packageParam) throws Throwable {
         if (packageParam.packageName.equals("com.madhead.tos.zh")) {
-            new PackageManagerHook(packageParam);
+            new ContextWrapperHook(packageParam);
+            new ApplicationPackageManagerHook(packageParam);
             new PortalHook(packageParam);
-            new UrlRequestLogger(packageParam);
+//            new UrlRequestLogger(packageParam);
         }
     }
 }

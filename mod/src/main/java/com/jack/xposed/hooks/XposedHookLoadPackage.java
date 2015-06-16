@@ -8,15 +8,13 @@ import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 public class XposedHookLoadPackage implements IXposedHookLoadPackage {
-    private static final String TAG = XposedHookLoadPackage.class.getSimpleName();
-
     @Override
     public void handleLoadPackage(LoadPackageParam packageParam) throws Throwable {
         String packageName = packageParam.packageName;
         if (packageParam.appInfo != null)
-            J.i(TAG, "load package [%s] for [%s] from [%s]", packageName, packageParam.processName, packageParam.appInfo.sourceDir);
+            J.log("load package [%s] for [%s] from [%s]", packageName, packageParam.processName, packageParam.appInfo.sourceDir);
         else
-            J.i(TAG, "load package [%s] for [%s]", packageName, packageParam.processName);
+            J.log("load package [%s] for [%s]", packageName, packageParam.processName);
 
         GlobalHandler.getInstance().onLoadPackage(packageParam);
 

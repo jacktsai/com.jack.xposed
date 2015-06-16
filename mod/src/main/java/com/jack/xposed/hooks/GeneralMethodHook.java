@@ -58,7 +58,7 @@ public class GeneralMethodHook extends XC_MethodHook {
         if (slot.returnString.length() == 0)
             J.d(TAG, "[%s] << %s%s.%s", packageParam.packageName, pad, slot.thisName, slot.methodName);
         else
-            J.d(TAG, "[%s] << %s%s.%s ret %s", packageParam.packageName, pad, slot.thisName, slot.methodName, slot.returnString);
+            J.d(TAG, "[%s] << %s%s.%s :: %s", packageParam.packageName, pad, slot.thisName, slot.methodName, slot.returnString);
 
         indentMap.put(thread, indent);
     }

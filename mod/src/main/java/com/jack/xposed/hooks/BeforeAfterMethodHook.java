@@ -5,8 +5,6 @@ import com.jack.xposed.utils.J;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
 public class BeforeAfterMethodHook extends GeneralMethodHook {
-    protected static final String TAG = "MethodHook";
-
     public BeforeAfterMethodHook(LoadPackageParam packageParam) {
         super(packageParam);
     }
